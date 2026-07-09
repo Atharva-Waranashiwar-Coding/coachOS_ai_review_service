@@ -1,0 +1,7 @@
+services:
+  ai-review-service:
+    build: .
+    env_file:
+      - .env.example
+    ports:
+      - "8004:8000"
