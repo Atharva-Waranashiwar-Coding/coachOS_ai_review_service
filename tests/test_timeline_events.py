@@ -1,12 +1,3 @@
-import os
-
-os.environ.update(
-    {
-        "DATABASE_URL": "sqlite+pysqlite:///:memory:",
-        "ATHLETE_SERVICE_INTERNAL_URL": "http://athlete.test",
-        "INTERNAL_SERVICE_TOKEN": "test",
-    }
-)
 from datetime import UTC, datetime
 from uuid import uuid4
 

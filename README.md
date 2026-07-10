@@ -1,99 +1,54 @@
 # CoachOS AI Review Service
 
-AI-assisted video review and coach approval service for CoachOS.
+The AI Review Service creates evidence-bound coaching drafts for uploaded videos, then keeps the coach in control of revision, approval, or rejection. It owns review requests, persisted outputs, revisions, generation jobs, and timeline outbox events.
 
-## Responsibilities
+## Review Lifecycle
 
-- AI review generation
-- Prompt construction
-- Structured review output
-- Strengths and improvement areas
-- Recommended drills
-- Coach edit and approval workflow
-- Review status tracking
+`pending -> processing -> generated -> approved|rejected`
 
-## Tech Stack
+Generation failures retry with bounded exponential backoff and terminate as `failed`; coaches can retry failed reviews or cancel pending work. Request creation writes the review, its job, and `ai_review_requested` outbox event in one transaction. Generated, failed, edited, approved, and rejected transitions also create their timeline events transactionally.
 
-- Python
-- FastAPI
-- PostgreSQL
-- SQLAlchemy
-- Alembic
-- Docker
-- External AI provider later
+The request path reads athlete, session, and uploaded-video metadata using the coach bearer token, stores a minimal context snapshot, and returns `202`. The background `review-worker` sends only that snapshot and coach-provided textual evidence to the provider. It never sends raw video bytes, storage URLs, credentials, or raw provider output.
 
-## Project Structure
+## API
 
-- `app/api`: API route modules
-- `app/core`: configuration and AI provider settings
-- `app/db`: database connection and session setup
-- `app/models`: database models
-- `app/schemas`: request and response schemas
-- `app/services`: AI review business logic
-- `app/utils`: shared utilities
-- `alembic`: database migrations
-- `tests`: service tests
+All routes are under `/api/v1`, require a valid coach JWT, and return the standard error envelope.
 
-## Environment
+- `POST /reviews` creates an async review. Pass `Idempotency-Key` for safe client retries.
+- `GET /reviews`, `GET /reviews/athletes/{athlete_id}/reviews`, `GET /reviews/videos/{video_id}/reviews` list reviews.
+- `GET /reviews/{id}` and `GET /reviews/{id}/status` fetch a review or polling status.
+- `PATCH /reviews/{id}/draft` saves a coach revision.
+- `POST /reviews/{id}/approve`, `/reject`, `/retry`, and `/cancel` transition lifecycle state.
 
-Copy `.env.example` to `.env` for local development. Do not commit `.env`.
+## Context and Output
 
-Required values:
+Inputs may include athlete profile metadata, practice session metadata, uploaded-video metadata, coach context, objectives, focus areas, manual observations, transcript, and frame observations. The output is validated by Pydantic and persists a summary, observations with confidence/evidence, strengths, improvement areas, recommended drills, and limitations.
 
-- `APP_NAME`
-- `ENVIRONMENT`
-- `DATABASE_URL`
+The provider instruction explicitly prohibits claims of raw-video viewing, medical diagnosis, or certainty unsupported by supplied evidence. Every output remains coach-only until a coach approval event makes the final feedback athlete-visible in the timeline.
 
-Future AI values:
+## Configuration
 
-- `AI_PROVIDER`
-- `AI_API_KEY`
-- `AI_MODEL`
+Copy `.env.example` to `.env`; do not commit it. Required local values include `DATABASE_URL`, `JWT_SECRET_KEY`, Athlete and Media service URLs, the internal Athlete Service timeline credentials, and `OPENAI_API_KEY` when running generation. `AI_*`, `REVIEW_JOB_*`, `MAX_*`, and `PROMPT_VERSION` control provider behavior and safe input bounds.
 
-## Running Locally
+## Run
 
 ```bash
 pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-
-The service exposes:
-
-- Local app: `http://localhost:8000`
-- Docker Compose port: `http://localhost:8004`
-- Health check: `GET /health`
-
-## Docker
-
-```bash
-docker compose up --build
-```
-
-## Planned API
-
-- `POST /reviews`
-- `GET /reviews/{review_id}`
-- `PATCH /reviews/{review_id}`
-- `POST /reviews/{review_id}/approve`
-- `POST /reviews/{review_id}/reject`
-- `POST /reviews/{review_id}/publish`
-
-## Testing
-
-```bash
-pytest
-```
-
-## Status
-
-Stage 0: service skeleton created. Review models, AI provider adapter, prompt templates, approval workflow, and tests are next.
-
-## Timeline Outbox Foundation
-
-Stage 5 adds the PostgreSQL outbox model, migration, publisher worker, and safe event factories for AI and coach review activity. Future review transactions must add the factory-produced row before committing domain state. Raw prompts and model output are rejected from metadata; generated reviews stay `coach_only`, while approved coach feedback becomes `athlete_visible`.
-
-```bash
 alembic upgrade head
+uvicorn app.main:app --reload --port 8004
+python -m app.workers.review_worker
 python -m app.workers.outbox_publisher
+```
+
+Docker Compose starts the API, PostgreSQL, review worker, and outbox worker. Supply real secrets through an uncommitted `.env` or deployment secret store rather than `.env.example`.
+
+## Quality
+
+```bash
+black --check app tests alembic
+ruff check app tests alembic
+mypy app
 pytest -q
 ```
+
+Current tradeoffs: provider invocation is a poll-based worker rather than a queue, context is captured at request time rather than refreshed at execution time, and this MVP uses an external structured-output provider. The provider boundary, prompt version, schema version, job table, and revision history leave room for queues, additional providers, retrieval, and future vision features without changing public review ownership.

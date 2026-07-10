@@ -12,3 +12,7 @@ services:
     build: .
     command: ["python", "-m", "app.workers.outbox_publisher"]
     env_file: [.env.example]
+  review-worker:
+    build: .
+    command: ["python", "-m", "app.workers.review_worker"]
+    env_file: [.env.example]

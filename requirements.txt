@@ -5,6 +5,8 @@ alembic==1.16.4
 psycopg[binary]==3.2.9
 pydantic-settings==2.10.1
 httpx==0.28.1
+PyJWT==2.10.1
+openai==1.75.0
 pytest==8.4.1
 ruff==0.12.4
 black==25.1.0
