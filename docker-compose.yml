@@ -1,7 +1,14 @@
 services:
+  ai-review-postgres:
+    image: postgres:16-alpine
+    environment: {POSTGRES_DB: coachos_ai_review, POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres}
   ai-review-service:
     build: .
     env_file:
       - .env.example
     ports:
       - "8004:8000"
+  outbox-worker:
+    build: .
+    command: ["python", "-m", "app.workers.outbox_publisher"]
+    env_file: [.env.example]

@@ -87,3 +87,13 @@ pytest
 ## Status
 
 Stage 0: service skeleton created. Review models, AI provider adapter, prompt templates, approval workflow, and tests are next.
+
+## Timeline Outbox Foundation
+
+Stage 5 adds the PostgreSQL outbox model, migration, publisher worker, and safe event factories for AI and coach review activity. Future review transactions must add the factory-produced row before committing domain state. Raw prompts and model output are rejected from metadata; generated reviews stay `coach_only`, while approved coach feedback becomes `athlete_visible`.
+
+```bash
+alembic upgrade head
+python -m app.workers.outbox_publisher
+pytest -q
+```
