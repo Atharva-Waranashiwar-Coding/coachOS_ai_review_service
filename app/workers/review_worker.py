@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.ai.openai_provider import OpenAIProvider
 from app.core.config import settings
+from app.core.logging import configure_logging
 from app.db.session import SessionLocal
 from app.models.review import (
     AIReview,
@@ -23,6 +24,7 @@ from app.services.timeline_events import ai_timeline_event
 
 logger = logging.getLogger(__name__)
 running = True
+configure_logging()
 
 
 def stop(*_: object) -> None:

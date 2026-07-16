@@ -1,18 +1,54 @@
 services:
   ai-review-postgres:
     image: postgres:16-alpine
-    environment: {POSTGRES_DB: coachos_ai_review, POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: coachos_ai_review
+      POSTGRES_USER: coachos_ai_review
+      POSTGRES_PASSWORD: ${AI_REVIEW_DB_PASSWORD:-postgres}
+    ports: ["5435:5432"]
+    volumes: [ai-review-postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coachos_ai_review -d coachos_ai_review"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   ai-review-service:
     build: .
-    env_file:
-      - .env.example
-    ports:
-      - "8004:8000"
+    restart: unless-stopped
+    init: true
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+psycopg://coachos_ai_review:${AI_REVIEW_DB_PASSWORD:-postgres}@ai-review-postgres:5432/coachos_ai_review
+      RUN_MIGRATIONS: "true"
+    ports: ["8004:8000"]
+    depends_on:
+      ai-review-postgres: {condition: service_healthy}
+
   outbox-worker:
     build: .
     command: ["python", "-m", "app.workers.outbox_publisher"]
-    env_file: [.env.example]
+    restart: unless-stopped
+    init: true
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+psycopg://coachos_ai_review:${AI_REVIEW_DB_PASSWORD:-postgres}@ai-review-postgres:5432/coachos_ai_review
+      RUN_MIGRATIONS: "false"
+    depends_on:
+      ai-review-service: {condition: service_healthy}
+
   review-worker:
     build: .
     command: ["python", "-m", "app.workers.review_worker"]
-    env_file: [.env.example]
+    restart: unless-stopped
+    init: true
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+psycopg://coachos_ai_review:${AI_REVIEW_DB_PASSWORD:-postgres}@ai-review-postgres:5432/coachos_ai_review
+      RUN_MIGRATIONS: "false"
+    depends_on:
+      ai-review-service: {condition: service_healthy}
+
+volumes:
+  ai-review-postgres-data:

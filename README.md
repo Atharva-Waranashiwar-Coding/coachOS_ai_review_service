@@ -57,6 +57,17 @@ python -m app.workers.outbox_publisher
 
 Docker Compose starts the API, PostgreSQL, review worker, and outbox worker. Supply real secrets through an uncommitted `.env` or deployment secret store rather than `.env.example`.
 
+The API entrypoint executes `alembic upgrade head` before startup. Both workers set `RUN_MIGRATIONS=false`, wait for API readiness, and use the same structured logging configuration. The multi-stage image runs as UID/GID `10001`.
+
+## Production Operations
+
+- `GET /health/live` reports process liveness.
+- `GET /health/ready` verifies PostgreSQL connectivity.
+- `GET /metrics` exposes Prometheus HTTP metrics.
+- `X-Request-ID` is propagated across HTTP requests and emitted in JSON stdout logs.
+
+Use `coachos-infra` for HTTPS termination, rate limiting, CORS allowlists, hardened read-only containers, Prometheus/Grafana, Loki/Promtail, image deployment, and isolated AI Review PostgreSQL backup/restore.
+
 ## Quality
 
 ```bash

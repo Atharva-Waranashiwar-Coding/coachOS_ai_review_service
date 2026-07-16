@@ -1,11 +1,12 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = Field(default="CoachOS AI Review Service", alias="APP_NAME")
+    app_env: str = Field(default="development", alias="APP_ENV")
     database_url: str = Field(alias="DATABASE_URL")
     jwt_secret_key: str = Field(alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
@@ -47,9 +48,20 @@ class Settings(BaseSettings):
     max_change_summary_characters: int = Field(default=500, alias="MAX_CHANGE_SUMMARY_CHARACTERS")
     default_page_size: int = Field(default=20, alias="DEFAULT_PAGE_SIZE")
     max_page_size: int = Field(default=100, alias="MAX_PAGE_SIZE")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    cors_origins: list[str] = Field(default_factory=list, alias="CORS_ORIGINS")
+    metrics_enabled: bool = Field(default=True, alias="METRICS_ENABLED")
+    request_id_header: str = Field(default="X-Request-ID", alias="REQUEST_ID_HEADER")
     insight_max_batch_athletes: int = Field(default=100, alias="INSIGHT_MAX_BATCH_ATHLETES", gt=0, le=500)
     insight_internal_service_token: str | None = Field(default=None, alias="INSIGHT_INTERNAL_SERVICE_TOKEN")
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
 
 
 @lru_cache

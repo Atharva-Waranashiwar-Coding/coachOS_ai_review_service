@@ -2,10 +2,12 @@ import signal
 import time
 
 from app.core.config import settings
+from app.core.logging import configure_logging
 from app.db.session import SessionLocal
 from app.services.outbox_publisher import OutboxPublisher
 
 running = True
+configure_logging()
 
 
 def stop(*_: object) -> None:
