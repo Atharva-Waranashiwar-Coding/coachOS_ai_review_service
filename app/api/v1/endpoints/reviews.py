@@ -11,6 +11,7 @@ from app.models.review import AIReview, AuditAction, ReviewStatus
 from app.schemas.review import (
     AllowedActions,
     ApprovalRequest,
+    ApprovedReviewContract,
     ApprovedSnapshotRead,
     AthletePreview,
     AuditEventRead,
@@ -194,12 +195,20 @@ def reject_review(
     return serialize(service.reject(review_id, user.id, payload), service)
 
 
-@router.get("/{review_id}/approved", response_model=ApprovedSnapshotRead)
+@router.get("/{review_id}/approved", response_model=ApprovedReviewContract)
 def approved_review(
     review_id: UUID, user: CurrentUser = Depends(require_coach), db: Session = Depends(get_db)
-) -> ApprovedSnapshotRead:
+) -> ApprovedReviewContract:
     service = ReviewService(db)
-    return ApprovedSnapshotRead.model_validate(service.approved(service.get(review_id, user.id)))
+    review = service.get(review_id, user.id)
+    snapshot = service.approved(review)
+    return ApprovedReviewContract.model_validate(
+        {
+            **{column.name: getattr(snapshot, column.name) for column in snapshot.__table__.columns},
+            "athlete_id": review.athlete_id,
+            "status": "approved",
+        }
+    )
 
 
 @router.get("/{review_id}/audit-log", response_model=AuditPage)

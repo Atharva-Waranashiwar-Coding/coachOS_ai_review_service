@@ -22,3 +22,9 @@ def require_coach(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
     if user.role != "coach":
         raise ForbiddenError("Coach role is required.")
     return user
+
+
+def require_athlete(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    if user.role != "athlete":
+        raise ForbiddenError("Athlete role is required.")
+    return user

@@ -269,6 +269,11 @@ class ApprovedSnapshotRead(ReviewContent):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ApprovedReviewContract(ApprovedSnapshotRead):
+    athlete_id: UUID
+    status: Literal["approved"] = "approved"
+
+
 class AuditEventRead(BaseModel):
     id: UUID
     actor_user_id: UUID | None

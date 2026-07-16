@@ -24,6 +24,17 @@ All routes are under `/api/v1`, require a valid coach JWT, and return the standa
 - `POST /reviews/{id}/approve`, `/reject`, `/retry`, and `/cancel` transition lifecycle state.
 - `GET /reviews/{id}/approved` and `/audit-log` return immutable approval and safe audit history for coaches.
 
+The approved endpoint also returns `review_id`, `athlete_id`, and `status: approved` for Athlete Service drill-assignment validation. Recommended drills remain advisory; this service never creates Athlete Service assignments.
+
+Athlete-facing endpoints:
+
+- `GET /api/v1/athlete/reviews`
+- `GET /api/v1/athlete/reviews/{review_id}`
+
+These routes require an athlete JWT and resolve the linked athlete by forwarding that bearer token to `GET {ATHLETE_SERVICE_URL}/api/v1/athlete/me`. Queries require `approved` status, an immutable approved snapshot, `athlete_visible` visibility, and an exact athlete ID match.
+
+Athlete schemas include only approved summary content, coach-approved athlete messages, strengths, improvement areas, safe observations, recommended drills, approval time, and an allowlisted practice-session context. They exclude confidence, evidence, coach notes, generated drafts, revisions, rejection data, provider metadata, model details, token usage, raw responses, prompts, and audit history. Inaccessible or coach-only feedback returns `404`.
+
 ## Context and Output
 
 Inputs may include athlete profile metadata, practice session metadata, uploaded-video metadata, coach context, objectives, focus areas, manual observations, transcript, and frame observations. The output is validated by Pydantic and persists a summary, observations with confidence/evidence, strengths, improvement areas, recommended drills, and limitations.
