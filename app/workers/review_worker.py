@@ -10,7 +10,15 @@ from sqlalchemy import select
 from app.ai.openai_provider import OpenAIProvider
 from app.core.config import settings
 from app.db.session import SessionLocal
-from app.models.review import AIReview, JobStatus, ReviewGenerationJob, ReviewResult, ReviewStatus
+from app.models.review import (
+    AIReview,
+    AuditAction,
+    JobStatus,
+    ReviewAuditEvent,
+    ReviewGenerationJob,
+    ReviewResult,
+    ReviewStatus,
+)
 from app.services.timeline_events import ai_timeline_event
 
 logger = logging.getLogger(__name__)
@@ -76,8 +84,18 @@ def run_once() -> bool:
             completed_at = datetime.now(UTC)
             review.status = ReviewStatus.GENERATED
             review.generation_completed_at = completed_at
+            review.generated_at = completed_at
             review.model_provider, review.model_name = "openai", settings.openai_model
             job.status, job.completed_at, job.last_error = JobStatus.COMPLETED, completed_at, None
+            db.add(
+                ReviewAuditEvent(
+                    review_id=review.id,
+                    actor_user_id=None,
+                    action_type=AuditAction.REVIEW_GENERATED,
+                    metadata_json={"prompt_version": review.prompt_version},
+                    occurred_at=completed_at,
+                )
+            )
             db.add(
                 ai_timeline_event(
                     event_type="ai_review_generated",

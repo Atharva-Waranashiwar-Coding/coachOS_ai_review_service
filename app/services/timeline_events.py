@@ -15,7 +15,7 @@ AI_EVENTS = {
     ),
     "coach_review_rejected": ("coach_review", "coach_only", "Coach feedback rejected"),
 }
-SAFE_METADATA = {"review_id", "practice_session_id", "video_id"}
+SAFE_METADATA = {"review_id", "practice_session_id", "video_id", "review_type", "visibility", "rejection_category"}
 
 
 def ai_timeline_event(
@@ -27,12 +27,13 @@ def ai_timeline_event(
     occurred_at: datetime,
     metadata: dict[str, object] | None = None,
     description: str | None = None,
+    event_visibility: str | None = None,
 ) -> OutboxEvent:
     if event_type not in AI_EVENTS:
         raise ValueError("Unsupported AI timeline event")
     if metadata and set(metadata) - SAFE_METADATA:
         raise ValueError("Timeline metadata contains unsafe keys")
-    category, visibility, title = AI_EVENTS[event_type]
+    category, default_visibility, title = AI_EVENTS[event_type]
     event_id = uuid4()
     payload = {
         "event_id": str(event_id),
@@ -48,7 +49,7 @@ def ai_timeline_event(
         "occurred_at": occurred_at.isoformat(),
         "metadata": metadata or {},
         "schema_version": 1,
-        "visibility": visibility,
+        "visibility": event_visibility or default_visibility,
     }
     return OutboxEvent(
         aggregate_type="ai_review",

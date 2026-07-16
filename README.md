@@ -6,6 +6,8 @@ The AI Review Service creates evidence-bound coaching drafts for uploaded videos
 
 `pending -> processing -> generated -> approved|rejected`
 
+Generated output is a coach-only baseline. Coaches save append-only revisions with `expected_revision_number`; stale saves return `409 STALE_REVIEW_REVISION` and are never merged automatically. Approval requires explicit confirmation and creates one immutable snapshot. Its visibility defaults to `coach_only` and is selected at approval. Snapshots never include private coach notes, provider metadata, prompts, or raw provider output.
+
 Generation failures retry with bounded exponential backoff and terminate as `failed`; coaches can retry failed reviews or cancel pending work. Request creation writes the review, its job, and `ai_review_requested` outbox event in one transaction. Generated, failed, edited, approved, and rejected transitions also create their timeline events transactionally.
 
 The request path reads athlete, session, and uploaded-video metadata using the coach bearer token, stores a minimal context snapshot, and returns `202`. The background `review-worker` sends only that snapshot and coach-provided textual evidence to the provider. It never sends raw video bytes, storage URLs, credentials, or raw provider output.
@@ -17,8 +19,10 @@ All routes are under `/api/v1`, require a valid coach JWT, and return the standa
 - `POST /reviews` creates an async review. Pass `Idempotency-Key` for safe client retries.
 - `GET /reviews`, `GET /reviews/athletes/{athlete_id}/reviews`, `GET /reviews/videos/{video_id}/reviews` list reviews.
 - `GET /reviews/{id}` and `GET /reviews/{id}/status` fetch a review or polling status.
-- `PATCH /reviews/{id}/draft` saves a coach revision.
+- `POST /reviews/{id}/revisions`, `GET /revisions`, and `GET /revisions/{revision_id}` manage immutable revisions.
+- `POST /reviews/{id}/preview` returns the athlete-facing representation without private notes.
 - `POST /reviews/{id}/approve`, `/reject`, `/retry`, and `/cancel` transition lifecycle state.
+- `GET /reviews/{id}/approved` and `/audit-log` return immutable approval and safe audit history for coaches.
 
 ## Context and Output
 
