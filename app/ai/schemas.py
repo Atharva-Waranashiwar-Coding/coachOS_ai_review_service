@@ -17,12 +17,14 @@ class Observation(BaseModel):
 class Strength(BaseModel):
     title: str = Field(min_length=1)
     description: str = Field(min_length=1)
+    taxonomy_code: str | None = None
 
 
 class ImprovementArea(BaseModel):
     title: str = Field(min_length=1)
     description: str = Field(min_length=1)
     priority: Literal["low", "medium", "high"]
+    taxonomy_code: str | None = None
 
 
 class RecommendedDrill(BaseModel):

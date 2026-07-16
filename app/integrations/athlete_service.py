@@ -33,3 +33,18 @@ class AthleteServiceClient:
             return AthleteIdentity.model_validate(response.json())
         except ValidationError as exc:
             raise UpstreamServiceError("Athlete Service returned an invalid identity contract.") from exc
+
+    def verify_coach_access(self, athlete_id: UUID, bearer_token: str) -> None:
+        """Verify coach access without copying athlete profile data."""
+        try:
+            response = self.client.get(
+                f"{settings.athlete_service_url.rstrip('/')}/api/v1/athletes/{athlete_id}",
+                headers={"Authorization": f"Bearer {bearer_token}"},
+            )
+        except httpx.HTTPError as exc:
+            raise UpstreamServiceError("Athlete Service is unavailable.") from exc
+        if response.status_code == 200:
+            return
+        if response.status_code in {401, 403, 404}:
+            raise NotFoundError("Athlete profile is unavailable.")
+        raise UpstreamServiceError("Athlete Service could not verify coach access.")

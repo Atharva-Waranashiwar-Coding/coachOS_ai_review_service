@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     max_change_summary_characters: int = Field(default=500, alias="MAX_CHANGE_SUMMARY_CHARACTERS")
     default_page_size: int = Field(default=20, alias="DEFAULT_PAGE_SIZE")
     max_page_size: int = Field(default=100, alias="MAX_PAGE_SIZE")
+    insight_max_batch_athletes: int = Field(default=100, alias="INSIGHT_MAX_BATCH_ATHLETES", gt=0, le=500)
+    insight_internal_service_token: str | None = Field(default=None, alias="INSIGHT_INTERNAL_SERVICE_TOKEN")
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

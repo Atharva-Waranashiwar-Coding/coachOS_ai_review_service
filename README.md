@@ -67,3 +67,16 @@ pytest -q
 ```
 
 Current tradeoffs: provider invocation is a poll-based worker rather than a queue, context is captured at request time rather than refreshed at execution time, and this MVP uses an external structured-output provider. The provider boundary, prompt version, schema version, job table, and revision history leave room for queues, additional providers, retrieval, and future vision features without changing public review ownership.
+
+## Progress Insight Data Contract
+
+Stage 10 adds:
+
+- `GET /api/v1/insights/athletes/{athlete_id}/approved-reviews`
+- `POST /api/v1/insights/athletes/approved-review-summary`
+
+The single-athlete route uses coach authorization and verifies athlete access. The batch route accepts only authenticated Athlete Service calls and enforces `INSIGHT_MAX_BATCH_ATHLETES`.
+
+Both contracts return immutable approved snapshots within start-inclusive, end-exclusive UTC boundaries. Safe fields include review ID/type, approval time, visibility, structured strengths, improvement areas, recommendations, nullable taxonomy codes, and source session/video IDs.
+
+They exclude generated and rejected reviews, coach notes, prompts, raw provider output, provider/model metadata, token usage, confidence/evidence internals, revision history, and audit history. `taxonomy_code` is optional so historical structured JSON remains valid. Configure batch auth with `INSIGHT_INTERNAL_SERVICE_TOKEN` or the shared internal service token.

@@ -62,16 +62,18 @@ class ObservationEdit(BaseModel):
 class StrengthEdit(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1, max_length=2000)
+    taxonomy_code: str | None = Field(default=None, max_length=100)
 
-    _normalize = field_validator("title", "description", mode="before")(clean_text)
+    _normalize = field_validator("title", "description", "taxonomy_code", mode="before")(clean_text)
 
 
 class ImprovementAreaEdit(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1, max_length=2000)
     priority: Literal["low", "medium", "high"]
+    taxonomy_code: str | None = Field(default=None, max_length=100)
 
-    _normalize = field_validator("title", "description", mode="before")(clean_text)
+    _normalize = field_validator("title", "description", "taxonomy_code", mode="before")(clean_text)
 
 
 class RecommendedDrillEdit(BaseModel):
