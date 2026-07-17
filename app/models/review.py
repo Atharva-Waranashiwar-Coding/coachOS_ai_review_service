@@ -9,7 +9,6 @@ from sqlalchemy import (
     JSON,
     CheckConstraint,
     DateTime,
-    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -23,6 +22,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
+from app.models.types import postgres_enum
 
 Json = JSON().with_variant(JSONB, "postgresql")
 
@@ -97,8 +97,10 @@ class AIReview(Base):
     practice_session_id: Mapped[UUID]
     video_id: Mapped[UUID]
     requested_by_user_id: Mapped[UUID]
-    status: Mapped[ReviewStatus] = mapped_column(Enum(ReviewStatus, name="review_status"), default=ReviewStatus.PENDING)
-    review_type: Mapped[ReviewType] = mapped_column(Enum(ReviewType, name="review_type"))
+    status: Mapped[ReviewStatus] = mapped_column(
+        postgres_enum(ReviewStatus, name="review_status"), default=ReviewStatus.PENDING
+    )
+    review_type: Mapped[ReviewType] = mapped_column(postgres_enum(ReviewType, name="review_type"))
     latest_revision_number: Mapped[int] = mapped_column(Integer, default=0)
     approved_snapshot_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("approved_review_snapshots.id", use_alter=True, name="fk_review_approved_snapshot"), nullable=True
@@ -202,7 +204,7 @@ class ApprovedReviewSnapshot(Base):
     improvement_areas: Mapped[list[Any]] = mapped_column(Json)
     recommended_drills: Mapped[list[Any]] = mapped_column(Json)
     athlete_message: Mapped[str | None] = mapped_column(Text)
-    visibility: Mapped[ReviewVisibility] = mapped_column(Enum(ReviewVisibility, name="review_visibility"))
+    visibility: Mapped[ReviewVisibility] = mapped_column(postgres_enum(ReviewVisibility, name="review_visibility"))
     approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -213,7 +215,9 @@ class ReviewRejection(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     review_id: Mapped[UUID] = mapped_column(ForeignKey("ai_reviews.id"), unique=True)
     rejected_by_user_id: Mapped[UUID]
-    category: Mapped[RejectionCategory] = mapped_column(Enum(RejectionCategory, name="review_rejection_category"))
+    category: Mapped[RejectionCategory] = mapped_column(
+        postgres_enum(RejectionCategory, name="review_rejection_category")
+    )
     reason: Mapped[str | None] = mapped_column(Text)
     rejected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -231,7 +235,7 @@ class ReviewAuditEvent(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     review_id: Mapped[UUID] = mapped_column(ForeignKey("ai_reviews.id"))
     actor_user_id: Mapped[UUID | None]
-    action_type: Mapped[AuditAction] = mapped_column(Enum(AuditAction, name="review_audit_action"))
+    action_type: Mapped[AuditAction] = mapped_column(postgres_enum(AuditAction, name="review_audit_action"))
     metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", Json, default=dict)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -244,7 +248,9 @@ class ReviewGenerationJob(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     review_id: Mapped[UUID] = mapped_column(ForeignKey("ai_reviews.id"), unique=True)
-    status: Mapped[JobStatus] = mapped_column(Enum(JobStatus, name="review_job_status"), default=JobStatus.PENDING)
+    status: Mapped[JobStatus] = mapped_column(
+        postgres_enum(JobStatus, name="review_job_status"), default=JobStatus.PENDING
+    )
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

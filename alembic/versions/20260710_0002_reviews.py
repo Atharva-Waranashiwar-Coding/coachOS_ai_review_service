@@ -9,11 +9,58 @@ branch_labels = None
 depends_on = None
 
 
+review_status = postgresql.ENUM(
+    "pending",
+    "processing",
+    "generated",
+    "failed",
+    "cancelled",
+    "approved",
+    "rejected",
+    name="review_status",
+    create_type=False,
+)
+
+review_type = postgresql.ENUM(
+    "general",
+    "hitting",
+    "pitching",
+    "fielding",
+    "throwing",
+    "footwork",
+    "mobility",
+    "strength",
+    "decision_making",
+    name="review_type",
+    create_type=False,
+)
+
+review_job_status = postgresql.ENUM(
+    "pending",
+    "processing",
+    "completed",
+    "failed",
+    "cancelled",
+    name="review_job_status",
+    create_type=False,
+)
+
+
 def upgrade():
-    rs = postgresql.ENUM(
-        "pending", "processing", "generated", "failed", "cancelled", "approved", "rejected", name="review_status"
-    )
-    rt = postgresql.ENUM(
+    bind = op.get_bind()
+
+    postgresql.ENUM(
+        "pending",
+        "processing",
+        "generated",
+        "failed",
+        "cancelled",
+        "approved",
+        "rejected",
+        name="review_status",
+    ).create(bind, checkfirst=True)
+
+    postgresql.ENUM(
         "general",
         "hitting",
         "pitching",
@@ -24,9 +71,17 @@ def upgrade():
         "strength",
         "decision_making",
         name="review_type",
-    )
-    js = postgresql.ENUM("pending", "processing", "completed", "failed", "cancelled", name="review_job_status")
-    [x.create(op.get_bind(), checkfirst=True) for x in (rs, rt, js)]
+    ).create(bind, checkfirst=True)
+
+    postgresql.ENUM(
+        "pending",
+        "processing",
+        "completed",
+        "failed",
+        "cancelled",
+        name="review_job_status",
+    ).create(bind, checkfirst=True)
+
     op.create_table(
         "ai_reviews",
         sa.Column("id", sa.UUID(), primary_key=True),
@@ -34,8 +89,8 @@ def upgrade():
         sa.Column("practice_session_id", sa.UUID(), nullable=False),
         sa.Column("video_id", sa.UUID(), nullable=False),
         sa.Column("requested_by_user_id", sa.UUID(), nullable=False),
-        sa.Column("status", rs, nullable=False),
-        sa.Column("review_type", rt, nullable=False),
+        sa.Column("status", review_status, nullable=False),
+        sa.Column("review_type", review_type, nullable=False),
         sa.Column("coach_context", sa.Text()),
         sa.Column("session_objectives", postgresql.JSONB(), nullable=False),
         sa.Column("requested_focus_areas", postgresql.JSONB(), nullable=False),
@@ -57,8 +112,13 @@ def upgrade():
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("approved_at", sa.DateTime(timezone=True)),
         sa.Column("rejected_at", sa.DateTime(timezone=True)),
-        sa.UniqueConstraint("requested_by_user_id", "idempotency_key", name="uq_review_idempotency"),
+        sa.UniqueConstraint(
+            "requested_by_user_id",
+            "idempotency_key",
+            name="uq_review_idempotency",
+        ),
     )
+
     op.create_table(
         "review_results",
         sa.Column("id", sa.UUID(), primary_key=True),
@@ -77,6 +137,7 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
+
     op.create_table(
         "review_revisions",
         sa.Column("id", sa.UUID(), primary_key=True),
@@ -90,13 +151,18 @@ def upgrade():
         sa.Column("recommended_drills", postgresql.JSONB(), nullable=False),
         sa.Column("coach_notes", sa.Text()),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.UniqueConstraint("review_id", "revision_number", name="uq_revision_number"),
+        sa.UniqueConstraint(
+            "review_id",
+            "revision_number",
+            name="uq_revision_number",
+        ),
     )
+
     op.create_table(
         "review_generation_jobs",
         sa.Column("id", sa.UUID(), primary_key=True),
         sa.Column("review_id", sa.UUID(), sa.ForeignKey("ai_reviews.id"), unique=True),
-        sa.Column("status", js, nullable=False),
+        sa.Column("status", review_job_status, nullable=False),
         sa.Column("attempt_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("available_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("started_at", sa.DateTime(timezone=True)),
@@ -107,6 +173,7 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
+
     for name, col in [
         ("ix_reviews_athlete", "athlete_id"),
         ("ix_reviews_video", "video_id"),
@@ -116,16 +183,39 @@ def upgrade():
         ("ix_reviews_created", "created_at"),
     ]:
         op.create_index(name, "ai_reviews", [col])
-    op.create_index("ix_revision_review_number", "review_revisions", ["review_id", "revision_number"])
-    op.create_index("ix_job_status_available", "review_generation_jobs", ["status", "available_at"])
+
+    op.create_index(
+        "ix_revision_review_number",
+        "review_revisions",
+        ["review_id", "revision_number"],
+    )
+
+    op.create_index(
+        "ix_job_status_available",
+        "review_generation_jobs",
+        ["status", "available_at"],
+    )
 
 
 def downgrade():
+    op.drop_index("ix_job_status_available", table_name="review_generation_jobs")
+    op.drop_index("ix_revision_review_number", table_name="review_revisions")
+
+    for idx in [
+        "ix_reviews_created",
+        "ix_reviews_requested_by",
+        "ix_reviews_status",
+        "ix_reviews_session",
+        "ix_reviews_video",
+        "ix_reviews_athlete",
+    ]:
+        op.drop_index(idx, table_name="ai_reviews")
+
     op.drop_table("review_generation_jobs")
     op.drop_table("review_revisions")
     op.drop_table("review_results")
     op.drop_table("ai_reviews")
-    [
-        postgresql.ENUM(name=x).drop(op.get_bind(), checkfirst=True)
-        for x in ("review_job_status", "review_type", "review_status")
-    ]
+
+    review_job_status.drop(op.get_bind(), checkfirst=True)
+    review_type.drop(op.get_bind(), checkfirst=True)
+    review_status.drop(op.get_bind(), checkfirst=True)

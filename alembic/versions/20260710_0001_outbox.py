@@ -8,10 +8,25 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
+outbox_status = postgresql.ENUM(
+    "pending",
+    "processing",
+    "published",
+    "failed",
+    name="outbox_status",
+    create_type=False,
+)
 
 def upgrade():
-    status = postgresql.ENUM("pending", "processing", "published", "failed", name="outbox_status")
-    status.create(op.get_bind(), checkfirst=True)
+    bind = op.get_bind()
+    enum_to_create = postgresql.ENUM(
+        "pending",
+        "processing",
+        "published",
+        "failed",
+        name="outbox_status",
+    )
+    enum_to_create.create(bind, checkfirst=True)
     op.create_table(
         "outbox_events",
         sa.Column("id", sa.UUID(), primary_key=True),
@@ -25,7 +40,12 @@ def upgrade():
             server_default="athlete-timeline",
         ),
         sa.Column("payload", postgresql.JSONB(), nullable=False),
-        sa.Column("status", status, nullable=False, server_default="pending"),
+        sa.Column(
+            "status",
+            outbox_status,
+            nullable=False,
+            server_default="pending",
+        ),
         sa.Column("attempt_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column(
             "available_at",
